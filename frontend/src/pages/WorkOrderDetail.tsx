@@ -18,7 +18,7 @@ function describe(e: WorkOrderEvent): { what: string; extra?: string } {
     case 'ASSIGNED': return { what: `Assigned to ${p.technicianName}`, extra: p.rationale ?? undefined };
     case 'REASSIGNED': return { what: `Reassigned to ${p.technicianName}`, extra: p.rationale ?? undefined };
     case 'STATUS_CHANGED': return {
-      what: `${WO_STATUS_LABEL[p.from as keyof typeof WO_STATUS_LABEL] ?? p.from} → ${WO_STATUS_LABEL[p.to as keyof typeof WO_STATUS_LABEL] ?? p.to}`,
+      what: `moved it from ${WO_STATUS_LABEL[p.from as keyof typeof WO_STATUS_LABEL] ?? p.from} to ${WO_STATUS_LABEL[p.to as keyof typeof WO_STATUS_LABEL] ?? p.to}`,
       extra: [p.note, p.resolutionNotes].filter(Boolean).join('\n') || undefined,
     };
     case 'COMMENT': return { what: 'Commented', extra: p.text };

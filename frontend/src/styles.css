@@ -79,6 +79,8 @@ h3 { font-size: 1.02rem; }
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; color: #fff; text-decoration: none; }
 .brand-mark { width: 30px; height: 30px; flex: none; }
@@ -158,8 +160,9 @@ h3 { font-size: 1.02rem; }
 .form-error { color: var(--emergency); background: var(--emergency-soft); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 0.92rem; }
 .form-ok { color: var(--done); background: var(--done-soft); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 0.92rem; }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
-.tabs button { border: 0; background: none; padding: 9px 12px; color: var(--muted); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs { display: flex; gap: 4px; box-shadow: inset 0 -1px 0 var(--line); margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { border: 0; background: none; padding: 9px 12px; color: var(--muted); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
 .tabs button[aria-selected='true'] { color: var(--ink); border-bottom-color: var(--pine); }
 .tabs .count { color: var(--faint); font-weight: 500; margin-left: 4px; }
 

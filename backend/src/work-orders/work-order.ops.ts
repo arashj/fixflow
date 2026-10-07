@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Db, Queryable } from '../db/db.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Category, DUE_HOURS, OPEN_WO_STATUSES, Urgency, WoStatus } from '../common/types';
+import { config } from '../config';
 
 /** A business-rule violation. The API maps it to HTTP 409; the agent receives it as a tool error. */
 export class DomainError extends Error {
@@ -216,7 +217,11 @@ export class WorkOrderOps {
     const open = await this.db.one<{ id: string }>(
       `SELECT id FROM work_order WHERE pm_schedule_id = $1 AND status NOT IN ('COMPLETED','CANCELLED')`, [pmScheduleId], q);
     if (open) return { workOrderId: open.id, created: false, note: 'An open work order already exists for this schedule' };
-    const due = new Date(`${pm.nextDueOn}T17:00:00Z`);
+    // Due at the end of the scheduled day (app time zone), but never less than 24h from now,
+    // so a task created late on its due date (or after missing it) doesn't start out overdue.
+    const { due } = (await this.db.one<{ due: Date }>(
+      `SELECT greatest((($1::date + 1)::timestamp AT TIME ZONE $2) - interval '1 minute', now() + interval '24 hours') AS due`,
+      [pm.nextDueOn, config.timezone], q))!;
     const wo = (await this.db.one<{ id: string }>(
       `INSERT INTO work_order(pm_schedule_id, property_id, unit_id, asset_id, title, description, category, priority, due_at,
                               created_by_user_id, created_by_agent_run_id)

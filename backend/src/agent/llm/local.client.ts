@@ -3,6 +3,8 @@ import { Category, Urgency } from '../../common/types';
 import { classifyCategory, classifyUrgency, matchAsset, similarity, withArticle } from './classifier';
 
 const n = (count: number, word: string, plural = `${word}s`) => `${count} ${count === 1 ? word : plural}`;
+/** '2026-10-08' → 'Thu, Oct 8' */
+const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 import { ContentBlock, LlmClient, LlmMessage, LlmRequest, LlmResponse, ToolUseBlock } from './llm.types';
 
 interface Call {
@@ -259,7 +261,7 @@ export class LocalRulesLlmClient implements LlmClient {
       for (const c of newPm) {
         const assign = assignCalls.find((x) => x.input.work_order_id === c.result.work_order_id && !x.isError);
         items.push({ type: 'PM_CREATED', severity: 'INFO', title: `Scheduled: ${c.result.title}`.slice(0, 200),
-          detail: `Due ${c.result.due_on}${assign ? `, assigned to ${assign.result.technician_name}` : ', not yet assigned'}.`,
+          detail: `Due ${day(c.result.due_on)}${assign ? `, assigned to ${assign.result.technician_name}` : ', not yet assigned'}.`,
           ref_type: 'WORK_ORDER', ref_id: c.result.work_order_id });
       }
       for (const g of calls.filter((c) => ['propose_close_work_order', 'draft_vendor_email'].includes(c.name) && !c.isError)) {

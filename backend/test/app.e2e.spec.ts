@@ -170,6 +170,9 @@ describe('nightly digest and approvals', () => {
     const pm = await ctx.db.many(`SELECT title, status FROM work_order WHERE pm_schedule_id IS NOT NULL ORDER BY title`);
     expect(pm.map((w) => w.title)).toEqual(['Annual boiler inspection (Boiler)', 'Flush water heater (Water heater)', 'Replace rooftop HVAC filters (Rooftop HVAC unit)']);
     expect(pm.every((w) => w.status === 'ASSIGNED')).toBe(true);
+    // Regression: a preventive job created on (or after) its due date must not start out overdue
+    const soonest = await ctx.db.one(`SELECT min(due_at) AS d FROM work_order WHERE pm_schedule_id IS NOT NULL`);
+    expect(new Date(soonest.d).getTime() - Date.now()).toBeGreaterThan(23 * 3600_000);
     const approvals = await ctx.db.many(`SELECT action_type, target_id FROM approval ORDER BY action_type`);
     expect(approvals.map((a) => a.action_type)).toEqual(['CLOSE_WORK_ORDER', 'SEND_VENDOR_EMAIL']);
     expect(approvals[0].target_id).toBe(ctx.ids.wo2bSink);
