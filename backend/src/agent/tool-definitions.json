@@ -1,0 +1,346 @@
+{
+  "_comment": "FixFlow agent tools. Each entry wraps a Claude tool definition. Before calling the Messages API, the backend filters by runTypes and sends only entry.tool (Claude rejects extra fields). 'access' is enforced server-side in ToolExecutor, never trusted to the prompt: READ = query only; WRITE = executes immediately and logs a work_order_event; GATED = never executes, inserts an approval row and returns {status:'PENDING_APPROVAL', approval_id}.",
+  "tools": [
+    {
+      "access": "READ",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "get_request",
+        "description": "Get a maintenance request with its property, unit, submitter and attachment count. The request's photos are already in your first message; this returns the structured fields.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "request_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["request_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["TRIAGE", "NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "search_assets",
+        "description": "Find assets in a property, optionally narrowed to a unit, category or free-text query (matches name, make, model). Use it to link a request to the specific asset involved. Unit assets and common-area assets are both returned when unit_id is given.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "unit_id": { "type": "string", "format": "uuid" },
+            "category": { "type": "string", "enum": ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "STRUCTURAL", "PEST", "GENERAL"] },
+            "query": { "type": "string", "description": "e.g. 'water heater', 'dishwasher'" }
+          },
+          "required": ["property_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "find_similar_requests",
+        "description": "List recent requests in the same property that may be duplicates or part of a pattern: same unit, same asset, or same category. Returns id, title, status, created_at and linked work order status. Call this before creating a work order.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "unit_id": { "type": "string", "format": "uuid" },
+            "asset_id": { "type": "string", "format": "uuid" },
+            "category": { "type": "string", "enum": ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "STRUCTURAL", "PEST", "GENERAL"] },
+            "days_back": { "type": "integer", "minimum": 1, "maximum": 365, "default": 30 },
+            "exclude_request_id": { "type": "string", "format": "uuid", "description": "The request being triaged." }
+          },
+          "required": ["property_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["TRIAGE", "NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "get_asset_history",
+        "description": "Get an asset's details plus its past work orders (newest first) with category, priority, resolution notes and completion date. Use it to spot repeat failures or an asset near end of life.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "asset_id": { "type": "string", "format": "uuid" },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+          },
+          "required": ["asset_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["TRIAGE", "NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "list_technicians",
+        "description": "List active technicians who cover the property and have the given skill. For each: open work order count, capacity (max_open_work_orders), whether they are unavailable now or before the due date, and their next free day.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "category": { "type": "string", "enum": ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "STRUCTURAL", "PEST", "GENERAL"] },
+            "needed_by": { "type": "string", "format": "date-time", "description": "Optional: check availability up to this time." }
+          },
+          "required": ["property_id", "category"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "list_overdue_work_orders",
+        "description": "Work orders in a property that are past due_at and not COMPLETED or CANCELLED, with assigned technician, status, days overdue and the last event.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["property_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "list_due_pm_tasks",
+        "description": "Active preventive maintenance schedules in a property due within the window, and whether an open work order already exists for each.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "within_days": { "type": "integer", "minimum": 0, "maximum": 60, "default": 7 }
+          },
+          "required": ["property_id"]
+        }
+      }
+    },
+    {
+      "access": "READ",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "find_repeat_failures",
+        "description": "Assets in a property with at least min_count corrective work orders in the window. Returns asset, count and the work order titles. Use for 'consider replacing' recommendations.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "days_back": { "type": "integer", "minimum": 7, "maximum": 365, "default": 90 },
+            "min_count": { "type": "integer", "minimum": 2, "maximum": 10, "default": 3 }
+          },
+          "required": ["property_id"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "set_triage",
+        "description": "Record your triage on the request: category, urgency, and the linked asset if you found one. EMERGENCY means risk to safety or major property damage right now (active leak, gas smell, no heat in winter, sparking, sewage backup). Moves the request to TRIAGED.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "request_id": { "type": "string", "format": "uuid" },
+            "category": { "type": "string", "enum": ["PLUMBING", "ELECTRICAL", "HVAC", "APPLIANCE", "STRUCTURAL", "PEST", "GENERAL"] },
+            "urgency": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "EMERGENCY"] },
+            "asset_id": { "type": "string", "format": "uuid" },
+            "rationale": { "type": "string", "description": "1-3 sentences, shown to the manager. Mention what you saw in the photo if relevant." }
+          },
+          "required": ["request_id", "category", "urgency", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "mark_duplicate",
+        "description": "Mark the request as a duplicate of an existing open request and add a comment to that request's work order. Only use when it is clearly the same problem in the same place, not merely the same category.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "request_id": { "type": "string", "format": "uuid" },
+            "duplicate_of_id": { "type": "string", "format": "uuid" },
+            "rationale": { "type": "string" }
+          },
+          "required": ["request_id", "duplicate_of_id", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "create_work_order",
+        "description": "Create an OPEN work order from a triaged request. Write the title and description for a technician: what is wrong, where, what to bring if obvious. Fails if the request already has a work order. Moves the request to CONVERTED.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "request_id": { "type": "string", "format": "uuid" },
+            "title": { "type": "string", "maxLength": 200 },
+            "description": { "type": "string" },
+            "priority": { "type": "string", "enum": ["LOW", "NORMAL", "HIGH", "EMERGENCY"] },
+            "due_at": { "type": "string", "format": "date-time", "description": "Defaults by priority if omitted: EMERGENCY 4h, HIGH 24h, NORMAL 3d, LOW 7d." }
+          },
+          "required": ["request_id", "title", "description", "priority"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "create_pm_work_order",
+        "description": "Create the work order for a due preventive maintenance schedule and advance its next_due_on. Idempotent: returns the existing open work order if one exists.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pm_schedule_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["pm_schedule_id"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["TRIAGE", "NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "assign_technician",
+        "description": "Assign an OPEN or unassigned work order to a technician and notify them. The server rejects the call if the technician lacks the skill, doesn't cover the property, is at capacity, or the work order is already IN_PROGRESS (use reassign_in_progress for that).",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "work_order_id": { "type": "string", "format": "uuid" },
+            "technician_id": { "type": "string", "format": "uuid" },
+            "rationale": { "type": "string", "description": "Why this technician, e.g. skill match + lowest load." }
+          },
+          "required": ["work_order_id", "technician_id", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["TRIAGE"],
+      "tool": {
+        "name": "notify_manager",
+        "description": "Send an immediate notification to the property manager. Use for EMERGENCY urgency, or when you could not assign anyone. Not for routine updates.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "kind": { "type": "string", "enum": ["EMERGENCY", "STATUS"] },
+            "title": { "type": "string", "maxLength": 200 },
+            "body": { "type": "string" },
+            "work_order_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["property_id", "kind", "title", "body"]
+        }
+      }
+    },
+    {
+      "access": "WRITE",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "publish_digest",
+        "description": "Publish today's digest for the manager. Call once, at the end. Order items by severity. Keep summary to 2-3 sentences.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "property_id": { "type": "string", "format": "uuid" },
+            "summary": { "type": "string" },
+            "items": {
+              "type": "array",
+              "maxItems": 30,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["OVERDUE", "PM_CREATED", "REPEAT_FAILURE", "UNASSIGNED", "APPROVAL_PENDING", "NOTE"] },
+                  "severity": { "type": "string", "enum": ["INFO", "WARN", "CRITICAL"] },
+                  "title": { "type": "string" },
+                  "detail": { "type": "string" },
+                  "ref_type": { "type": "string", "enum": ["WORK_ORDER", "ASSET", "REQUEST", "APPROVAL"] },
+                  "ref_id": { "type": "string", "format": "uuid" }
+                },
+                "required": ["type", "severity", "title"]
+              }
+            }
+          },
+          "required": ["property_id", "summary", "items"]
+        }
+      }
+    },
+    {
+      "access": "GATED",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "draft_vendor_email",
+        "description": "Propose an email to an outside vendor (e.g. for work no technician can do). Does NOT send: it creates an approval for the manager, who can edit and send. Returns the approval id.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "work_order_id": { "type": "string", "format": "uuid" },
+            "vendor_email": { "type": "string", "format": "email" },
+            "subject": { "type": "string" },
+            "body": { "type": "string" },
+            "rationale": { "type": "string" }
+          },
+          "required": ["work_order_id", "vendor_email", "subject", "body", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "GATED",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "propose_close_work_order",
+        "description": "Propose closing a work order as COMPLETED (e.g. technician left resolution notes but didn't close it). Creates an approval; does not close it.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "work_order_id": { "type": "string", "format": "uuid" },
+            "resolution_notes": { "type": "string" },
+            "rationale": { "type": "string" }
+          },
+          "required": ["work_order_id", "resolution_notes", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "GATED",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "propose_cancel_work_order",
+        "description": "Propose cancelling a work order (e.g. stale and superseded by another). Creates an approval; does not cancel it.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "work_order_id": { "type": "string", "format": "uuid" },
+            "rationale": { "type": "string" }
+          },
+          "required": ["work_order_id", "rationale"]
+        }
+      }
+    },
+    {
+      "access": "GATED",
+      "runTypes": ["NIGHTLY_DIGEST"],
+      "tool": {
+        "name": "reassign_in_progress",
+        "description": "Propose moving an IN_PROGRESS or long-overdue work order to a different technician. Creates an approval; does not reassign.",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "work_order_id": { "type": "string", "format": "uuid" },
+            "new_technician_id": { "type": "string", "format": "uuid" },
+            "rationale": { "type": "string" }
+          },
+          "required": ["work_order_id", "new_technician_id", "rationale"]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+# docker compose up --build        → app on http://localhost:3000
+# docker compose run --rm app node dist/db/seed-cli.js   → load demo data
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fixflow
+      POSTGRES_PASSWORD: fixflow
+      POSTGRES_DB: fixflow
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fixflow"]
+      interval: 3s
+      retries: 20
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://fixflow:fixflow@db:5432/fixflow
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Toronto}
+    ports: ["3000:3000"]
+    volumes: [uploads:/app/uploads]
+volumes:
+  pgdata:
+  uploads:
