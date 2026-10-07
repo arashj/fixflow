@@ -7,12 +7,18 @@ import { config } from './config';
 import { AppModule } from './app.module';
 import { Db } from './db/db.service';
 import { migrate } from './db/migrate';
+import { seed } from './db/seed';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.enableShutdownHooks();
   app.set('trust proxy', 1);
-  await migrate(app.get(Db).pool, config.migrationsDir, (m) => Logger.log(m, 'Migrations'));
+  const pool = app.get(Db).pool;
+  await migrate(pool, config.migrationsDir, (m) => Logger.log(m, 'Migrations'));
+  if (config.seedOnEmpty && !(await pool.query('SELECT 1 FROM app_user LIMIT 1')).rowCount) {
+    await seed(pool);
+    Logger.log('Empty database: loaded demo data', 'Bootstrap');
+  }
 
   // Serve the built React app (if present) from the same origin, with SPA fallback.
   const index = path.join(config.frontendDist, 'index.html');

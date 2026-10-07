@@ -17,6 +17,10 @@ export const config = {
   agentWorkerEnabled: bool(process.env.AGENT_WORKER_ENABLED, true),
   agentPollMs: Number(process.env.AGENT_POLL_MS ?? 1500),
   nightlyCron: process.env.NIGHTLY_CRON ?? '0 6 * * *',
+  /** Load the demo data on boot when the database has no users (first deploy). */
+  seedOnEmpty: bool(process.env.SEED_ON_EMPTY, false),
+  /** Public demo: wipe and reload the demo data on this cron schedule (empty = never). */
+  demoResetCron: process.env.DEMO_RESET_CRON || undefined,
   frontendDist: path.resolve(process.env.FRONTEND_DIST ?? path.join(__dirname, '..', '..', 'frontend', 'dist')),
   migrationsDir: path.resolve(process.env.MIGRATIONS_DIR ?? path.join(__dirname, '..', 'migrations')),
 };

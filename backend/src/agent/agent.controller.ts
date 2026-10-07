@@ -6,6 +6,7 @@ import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { AgentQueue } from './agent-queue.service';
 import { AgentRunner } from './agent-runner.service';
 import { TOOL_DEFS } from './tools';
+import { config } from '../config';
 
 @Controller('api/agent')
 export class AgentController {
@@ -14,7 +15,7 @@ export class AgentController {
   @Public()
   @Get('status')
   status() {
-    return { ...this.runner.mode, tools: TOOL_DEFS.map((t) => ({ name: t.tool.name, access: t.access, runTypes: t.runTypes })) };
+    return { ...this.runner.mode, demoResets: !!config.demoResetCron, tools: TOOL_DEFS.map((t) => ({ name: t.tool.name, access: t.access, runTypes: t.runTypes })) };
   }
 
   @Get('runs')

@@ -269,4 +269,5 @@ export interface Notification {
 export interface AgentStatus {
   mode: 'claude' | 'local';
   model: string;
+  demoResets?: boolean;
 }

@@ -21,6 +21,7 @@ import { AgentQueue } from './agent/agent-queue.service';
 import { AgentRunner } from './agent/agent-runner.service';
 import { AgentWorker } from './agent/agent-worker.service';
 import { ToolExecutor } from './agent/tool-executor.service';
+import { DemoResetService } from './agent/demo-reset.service';
 import { LLM_CLIENT } from './agent/llm/llm.types';
 import { AnthropicLlmClient } from './agent/llm/anthropic.client';
 import { LocalRulesLlmClient } from './agent/llm/local.client';
@@ -40,7 +41,7 @@ import { LocalRulesLlmClient } from './agent/llm/local.client';
       useFactory: () => (config.anthropicApiKey ? new AnthropicLlmClient(config.anthropicApiKey, config.anthropicModel) : new LocalRulesLlmClient()),
     },
     AccessService, NotificationsService, WorkOrderOps, MailerService,
-    AgentQueue, AgentRunner, AgentWorker, ToolExecutor,
+    AgentQueue, AgentRunner, AgentWorker, ToolExecutor, DemoResetService,
   ],
 })
 export class AppModule {}

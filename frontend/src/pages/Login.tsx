@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { CheckCircle2, Wrench } from 'lucide-react';
-import { errorMessage, useDemoAccountsQuery, useLoginMutation } from '../app/api';
+import { errorMessage, useAgentStatusQuery, useDemoAccountsQuery, useLoginMutation } from '../app/api';
 import { signIn } from '../app/store';
 import { AgentMark, ErrorBox } from '../components/ui';
 
@@ -11,6 +11,7 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [login, { isLoading, error }] = useLoginMutation();
   const { data: demo } = useDemoAccountsQuery();
+  const { data: status } = useAgentStatusQuery();
 
   async function submit(e?: FormEvent, creds = { email, password }) {
     e?.preventDefault();
@@ -79,7 +80,9 @@ export function Login() {
             </label>
             {error && <ErrorBox message={errorMessage(error)} />}
             <button className="btn btn-primary" disabled={isLoading}>{isLoading ? 'Signing in…' : 'Sign in'}</button>
-            <p className="faint small" style={{ margin: 0 }}>Demo accounts all use the password demo1234.</p>
+            <p className="faint small" style={{ margin: 0 }}>
+              Demo accounts all use the password demo1234.{status?.demoResets ? ' This demo resets every night, so feel free to change anything.' : ''}
+            </p>
           </form>
         </div>
       </section>
