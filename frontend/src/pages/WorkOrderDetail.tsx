@@ -105,7 +105,8 @@ export function WorkOrderDetail() {
           <section className="panel panel-pad">
             <dl className="kv">
               <dt>Technician</dt><dd>{w.technicianName ?? <span className="faint">None yet</span>}</dd>
-              <dt>Due</dt><dd>{w.dueAt ? <>{dateTime(w.dueAt)} <span className="faint">({relative(w.dueAt)})</span></> : '—'}</dd>
+              <dt>{closed ? 'Was due' : 'Due'}</dt><dd>{w.dueAt ? <>{dateTime(w.dueAt)}{!closed && <span className="faint"> ({relative(w.dueAt)})</span>}</> : '—'}</dd>
+              {w.completedAt && <><dt>Completed</dt><dd>{dateTime(w.completedAt)}</dd></>}
               <dt>Category</dt><dd>{CATEGORY_LABEL[w.category]}</dd>
               <dt>Source</dt><dd>{w.source === 'PREVENTIVE' ? 'Preventive schedule' : <Link to={`/requests/${w.requestId}`}>Tenant request</Link>}</dd>
               <dt>Created</dt><dd className="row" style={{ gap: 6 }}>{w.createdByAgent && <AgentMark title="Created by the AI agent" />}{dateTime(w.createdAt)}</dd>

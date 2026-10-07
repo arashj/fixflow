@@ -81,6 +81,8 @@ h3 { font-size: 1.02rem; }
   height: 100vh;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pine-3) transparent;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px 22px; color: #fff; text-decoration: none; }
 .brand-mark { width: 30px; height: 30px; flex: none; }
